@@ -1,0 +1,163 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink-950: #0b1015;
+  --color-ink-900: #111820;
+  --color-ink-850: #16202a;
+  --color-ink-800: #1c2833;
+  --color-ink-700: #2a3947;
+  --color-ink-600: #3d5063;
+  --color-ink-400: #7d93a8;
+  --color-ink-300: #a3b6c8;
+  --color-ink-100: #e3ecf4;
+
+  --color-brand-400: #f0b429;
+  --color-brand-500: #de911d;
+  --color-brand-600: #cb6e17;
+
+  --color-ok-400: #48d597;
+  --color-ok-600: #199473;
+  --color-warn-400: #f7c948;
+  --color-bad-400: #f2707a;
+  --color-bad-600: #cf1124;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-read: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(1100px 600px at 15% -10%, #1b2a38 0%, transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, #241f2e 0%, transparent 55%),
+    var(--color-ink-950);
+  color: var(--color-ink-100);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- primitivas reutilizadas en toda la app ---- */
+
+.card {
+  background: color-mix(in srgb, var(--color-ink-900) 88%, transparent);
+  border: 1px solid var(--color-ink-800);
+  border-radius: 14px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9px;
+  padding: 0.55rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-primary { background: var(--color-brand-500); color: #1a1204; }
+.btn-primary:hover:not(:disabled) { background: var(--color-brand-400); }
+
+.btn-ghost { background: transparent; border-color: var(--color-ink-700); color: var(--color-ink-300); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--color-ink-600); color: var(--color-ink-100); }
+
+.btn-danger { background: transparent; border-color: #5b2530; color: var(--color-bad-400); }
+.btn-danger:hover:not(:disabled) { background: #3a1820; }
+
+.field {
+  width: 100%;
+  background: var(--color-ink-950);
+  border: 1px solid var(--color-ink-700);
+  border-radius: 9px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  color: var(--color-ink-100);
+}
+.field:focus { outline: 2px solid var(--color-brand-600); outline-offset: -1px; }
+.field::placeholder { color: var(--color-ink-600); }
+
+.label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-ink-400);
+  margin-bottom: 0.35rem;
+}
+
+/* ---- texto del script en modo lectura y examen ---- */
+
+.reader {
+  font-family: var(--font-read);
+  font-size: 1.05rem;
+  line-height: 2.15;
+}
+
+.speaker {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-brand-400);
+}
+
+/* El input del hueco: se integra en la linea de texto, no la rompe. */
+.blank-input {
+  font-family: var(--font-read);
+  font-size: 1.02rem;
+  background: color-mix(in srgb, var(--color-brand-500) 9%, transparent);
+  border: 0;
+  border-bottom: 2px solid var(--color-ink-600);
+  color: var(--color-brand-400);
+  padding: 0 0.35rem;
+  margin: 0 0.1rem;
+  text-align: center;
+  border-radius: 4px 4px 0 0;
+  min-width: 3.5rem;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.blank-input:focus {
+  outline: none;
+  border-bottom-color: var(--color-brand-400);
+  background: color-mix(in srgb, var(--color-brand-500) 18%, transparent);
+}
+.blank-input.filled { border-bottom-color: var(--color-ink-400); color: var(--color-ink-100); }
+/* La pista del modo medio vive en el placeholder: visible hasta que empiezas a escribir. */
+.blank-input::placeholder { color: var(--color-ink-600); letter-spacing: 0.06em; }
+
+.blank-input.v-correct { border-bottom-color: var(--color-ok-400); color: var(--color-ok-400); background: color-mix(in srgb, var(--color-ok-600) 18%, transparent); }
+.blank-input.v-typo    { border-bottom-color: var(--color-warn-400); color: var(--color-warn-400); background: color-mix(in srgb, var(--color-warn-400) 14%, transparent); }
+.blank-input.v-wrong,
+.blank-input.v-skipped { border-bottom-color: var(--color-bad-400); color: var(--color-bad-400); background: color-mix(in srgb, var(--color-bad-600) 16%, transparent); text-decoration: line-through; }
+
+.solution {
+  font-family: var(--font-read);
+  color: var(--color-ok-400);
+  margin-left: 0.3rem;
+  white-space: nowrap;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-ink-700);
+  color: var(--color-ink-300);
+  background: var(--color-ink-850);
+}

@@ -1,0 +1,26 @@
+# Dependencias: se instalan dentro de la imagen con npm ci
+node_modules/
+
+# Artefactos de build: se generan dentro de la imagen
+.next/
+out/
+
+# Git
+.git/
+.gitignore
+
+# Entorno y secretos — NO deben quedar dentro de la imagen
+.env
+.env.local
+.env.*.local
+
+# Documentacion
+*.md
+
+# Logs y basura
+*.log
+npm-debug.log*
+*.tsbuildinfo
+.DS_Store
+.vscode/
+.idea/

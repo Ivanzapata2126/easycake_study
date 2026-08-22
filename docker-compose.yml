@@ -1,0 +1,44 @@
+# EasyCake — solo la aplicacion.
+#
+# En el servidor hay UN solo Postgres al que se conectan todos los proyectos,
+# cada uno con su propia base. Por eso aqui NO se levanta un Postgres: se usa el
+# que ya existe. DB_HOST y POSTGRES_NETWORK se definen en .env.
+#
+# La base 'easycake' se crea sola en el primer arranque si el usuario tiene
+# permiso para CREATE DATABASE. Si no lo tiene, creala a mano una vez:
+#   docker exec <contenedor-postgres> psql -U postgres -c "CREATE DATABASE easycake;"
+#
+# Las tablas y el usuario admin los crea la propia aplicacion al arrancar
+# (scripts/start.mjs -> migrations/).
+
+services:
+  app:
+    build: .
+    ports:
+      - "3002:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: ${DB_HOST:?define DB_HOST en .env}
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-easycake}
+      DB_PORT: 5432
+      COOKIE_SECURE: "false"      # ponlo en true cuando sirvas por HTTPS
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+    networks:
+      - postgres-net
+
+networks:
+  # Red donde ya vive el Postgres compartido. 'external: true' significa que
+  # docker compose NO la crea: espera encontrarla.
+  postgres-net:
+    external: true
+    name: ${POSTGRES_NETWORK:?define POSTGRES_NETWORK en .env}
