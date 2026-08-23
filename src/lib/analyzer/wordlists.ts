@@ -227,6 +227,70 @@ export const CONTRACTIONS: Record<string, string> = {
   "mightn't": 'might not', "needn't": 'need not', "cannot": 'can not',
 };
 
+/**
+ * Medios de transporte. El patron es `by + medio` (sin articulo) y la excepcion
+ * `on foot`. Se tapa la PREPOSICION: es el error clasico del hispanohablante,
+ * que traduce "en carro" como "in car".
+ */
+export const TRANSPORT_MEANS = new Set<string>([
+  'car', 'bus', 'train', 'plane', 'boat', 'ship', 'bike', 'bicycle',
+  'motorcycle', 'motorbike', 'taxi', 'subway', 'metro', 'tram', 'ferry',
+  'helicopter', 'scooter', 'truck', 'van', 'coach', 'air', 'sea', 'land',
+  'foot', 'horse', 'plane',
+]);
+
+/**
+ * Comparativos irregulares y periodicos. La forma comparativa es justo lo que
+ * se falla ("more better", "gooder"), asi que se tapa la palabra comparativa,
+ * no el `than`.
+ */
+export const IRREGULAR_COMPARATIVES = new Set<string>([
+  'better', 'worse', 'more', 'less', 'further', 'farther', 'elder',
+]);
+
+/**
+ * Palabras que terminan en -er y van seguidas de `than` sin ser comparativos.
+ * Sin esta lista, "rather than" y "other than" se marcarian como comparativo.
+ */
+export const NOT_COMPARATIVE = new Set<string>([
+  'other', 'rather', 'whether', 'either', 'neither', 'over', 'under', 'after',
+  'never', 'ever', 'together', 'however', 'moreover', 'whatever', 'whenever',
+]);
+
+/**
+ * Sustantivos de tiempo. Si van justo detras de "on"/"in"/"at", esa palabra es
+ * una preposicion de tiempo y no la particula de un phrasal verb:
+ * "held on Wednesdays" no es el phrasal "hold on".
+ */
+export const TIME_NOUNS = new Set<string>([
+  'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+  'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august',
+  'september', 'october', 'november', 'december',
+  'morning', 'afternoon', 'evening', 'night', 'weekend', 'weekday', 'holiday',
+  'noon', 'midnight', 'dawn', 'dusk', 'week', 'month', 'year', 'day', 'hour',
+  'time', 'occasion', 'schedule', 'birthday', 'christmas', 'easter',
+]);
+
+/**
+ * Auxiliares que no son ni buen hueco de modal (demasiado ambiguos sin
+ * contexto) ni vocabulario de contenido. Se descartan del todo: sin esto caian
+ * al filtro de vocabulario y acababan tapados con la etiqueta equivocada.
+ */
+export const SKIP_AUXILIARIES = new Set<string>(['can', 'will', 'may']);
+// `shall` NO va aqui: es raro y distintivo ("shall we?"), justo lo que si vale
+// la pena tapar. Estuvo un rato en esta lista por error.
+
+/**
+ * Falsos phrasal verbs: la particula pertenece a lo que sigue, no al verbo.
+ * "go on foot" no es el phrasal "go on" — la unidad es "on foot".
+ * Clave: "<base> <particula> <palabra siguiente>".
+ */
+export const NOT_PHRASAL = new Set<string>([
+  'go on foot', 'come on foot', 'travel on foot',
+  'go by car', 'go by bus', 'go by train', 'go by plane', 'go by boat',
+  'go on holiday', 'go on vacation', 'go on strike',
+]);
+
 /** Pool de reserva para generar distractores cuando el script no da suficientes. */
 export const DISTRACTOR_POOL: Record<string, string[]> = {
   preposition: ['in', 'on', 'at', 'for', 'to', 'with', 'about', 'of', 'from', 'by'],
@@ -235,4 +299,6 @@ export const DISTRACTOR_POOL: Record<string, string[]> = {
   modal: ['would', 'should', 'could', 'might', 'must', 'can', 'will', 'may'],
   verb_form: ['went', 'made', 'took', 'brought', 'thought', 'kept', 'found', 'told'],
   contraction: ["i'm", "it's", "don't", "won't", "that's", "we're", "they've"],
+  comparative: ['more', 'less', 'better', 'worse', 'faster', 'cheaper', 'easier'],
+  conditional: ['would', 'could', 'might', 'had', 'would have', 'had been'],
 };

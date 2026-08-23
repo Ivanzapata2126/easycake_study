@@ -5,6 +5,8 @@ export const TAG_LABEL: Record<string, string> = {
   phrasal_verb: 'phrasal verb',
   preposition: 'preposicion',
   connector: 'conector',
+  comparative: 'comparativo',
+  conditional: 'condicional',
   verb_form: 'forma verbal',
   modal: 'modal',
   contraction: 'contraccion',

@@ -34,27 +34,71 @@ function run(cmd, args) {
   });
 }
 
+/** Pistas accionables por codigo de error, para no tener que adivinar. */
+function explain(err) {
+  const code = err.code || '';
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+    return `DB_HOST="${dbConfig.host}" no resuelve. Es el nombre del servicio de
+       Postgres en EasyPanel, y ambos servicios tienen que estar en el MISMO
+       proyecto/red. Copia el DB_HOST de otra app tuya que ya conecte.`;
+  }
+  if (code === 'ECONNREFUSED') {
+    return `Hay DNS pero nadie escucha en ${dbConfig.host}:${dbConfig.port}.
+       Revisa DB_PORT y que el servicio de Postgres este arriba.`;
+  }
+  if (code === 'ETIMEDOUT') {
+    return 'La conexion expira: normalmente la app y Postgres estan en redes distintas.';
+  }
+  if (code === '28P01' || code === '28000') {
+    return `Postgres responde pero rechaza al usuario "${dbConfig.user}": revisa DB_USER y DB_PASSWORD.`;
+  }
+  if (code === '3D000') {
+    return `Postgres responde pero la base "${dbConfig.database}" no existe todavia.`;
+  }
+  return 'Revisa DB_HOST, DB_PORT, DB_USER y DB_PASSWORD.';
+}
+
 /**
- * Espera a que Postgres acepte conexiones. En un compose el contenedor de la
- * app suele arrancar antes que la base; sin esto el primer deploy falla y hay
- * que reintentarlo a mano.
+ * Espera a que Postgres acepte conexiones.
  *
- * Se conecta a la base `postgres`, NO a la de la aplicacion: en el primer
- * arranque esa todavia no existe (la crean las migraciones), y esperar por ella
- * seria esperar para siempre.
+ * Sondea la base de la APLICACION, no la de mantenimiento: hay instalaciones
+ * donde el usuario no puede entrar a `postgres`, y exigirlo haria fallar un
+ * arranque que en realidad podria funcionar. Si la respuesta es 3D000 (la base
+ * no existe) el servidor esta perfectamente vivo y contestando, que es lo unico
+ * que se estaba esperando: crearla es tarea de las migraciones.
  */
-async function waitForPostgres(attempts = 30) {
+async function waitForPostgres(attempts = 20) {
   for (let i = 1; i <= attempts; i++) {
-    const client = new pg.Client({ ...dbConfig, database: 'postgres' });
+    const client = new pg.Client({ ...dbConfig, connectionTimeoutMillis: 5000 });
     try {
       await client.connect();
       await client.end();
+      console.log(`[start] Postgres responde en ${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`);
       return;
     } catch (err) {
       await client.end().catch(() => {});
-      if (i === attempts) throw new Error(`Postgres no respondio tras ${attempts} intentos: ${err.message}`);
-      console.log(`[start] esperando a Postgres (${i}/${attempts})...`);
-      await new Promise((r) => setTimeout(r, 2000));
+
+      if (err.code === '3D000') {
+        console.log(`[start] Postgres responde; la base "${dbConfig.database}" aun no existe, se creara`);
+        return;
+      }
+      // Credenciales malas: reintentar 20 veces no las va a arreglar.
+      if (err.code === '28P01' || err.code === '28000') {
+        throw new Error(`[start] ${explain(err)}
+[start] (${err.code}) ${err.message}`);
+      }
+
+      // El motivo se imprime SIEMPRE, no solo al agotar los intentos: un log de
+      // 20 lineas identicas sin causa no sirve para diagnosticar nada.
+      console.log(
+        `[start] intento ${i}/${attempts} — no se pudo conectar a ` +
+        `${dbConfig.host}:${dbConfig.port} (${err.code || 'sin codigo'}): ${err.message}`,
+      );
+      if (i === 1) console.log(`[start] ${explain(err)}`);
+      if (i === attempts) {
+        throw new Error(`[start] Postgres no respondio tras ${attempts} intentos. ${explain(err)}`);
+      }
+      await new Promise((r) => setTimeout(r, 3000));
     }
   }
 }
@@ -102,6 +146,9 @@ async function bootstrapAdmin() {
   }
 }
 
+console.log(
+  `[start] destino: ${dbConfig.user}@${dbConfig.host}:${dbConfig.port}/${dbConfig.database}`,
+);
 await waitForPostgres();
 await run(process.execPath, [path.join(ROOT, 'scripts', 'migrate.mjs')]);
 await bootstrapAdmin();

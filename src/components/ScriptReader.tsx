@@ -17,6 +17,8 @@ const TAG_COLOR: Record<string, string> = {
   phrasal_verb: 'text-brand-400 decoration-brand-600',
   preposition: 'text-ok-400 decoration-ok-600',
   connector: 'text-[#c084fc] decoration-[#7e3ff2]',
+  comparative: 'text-[#f9a03f] decoration-[#b44d12]',
+  conditional: 'text-[#7bd88f] decoration-[#2f8f4e]',
   verb_form: 'text-[#5fc3e4] decoration-[#2680c2]',
   modal: 'text-[#f0a3b1] decoration-[#8c2f39]',
   contraction: 'text-ink-300 decoration-ink-600',

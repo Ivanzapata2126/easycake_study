@@ -2,7 +2,9 @@ import 'server-only';
 import type { PoolClient } from 'pg';
 import { query, tx } from './db';
 import { parseScript, type ParsedLine } from './parse';
-import { analyzeLine, fillDistractors, type RawCandidate } from './analyzer';
+import {
+  analyzeLine, capContractions, fillDistractors, scriptVocabulary, type RawCandidate,
+} from './analyzer';
 import type { User } from './users';
 import type { CandidateRow, LineRow, ScriptRow, ScriptSummary } from './types';
 
@@ -96,10 +98,11 @@ export async function createScript(
     );
     const scriptId = rows[0].id;
 
+    const entries: Analyzable[] = [];
     for (let i = 0; i < parsed.length; i++) {
-      const lineId = await insertLine(c, scriptId, i, parsed[i]);
-      await analyzeAndStore(c, scriptId, lineId, parsed[i]);
+      entries.push({ lineId: await insertLine(c, scriptId, i, parsed[i]), line: parsed[i] });
     }
+    await analyzeAndStore(c, scriptId, entries, scriptVocabulary(parsed.map((p) => p.text)));
     await rebalanceDistractors(c, scriptId);
     return scriptId;
   });
@@ -169,15 +172,20 @@ export async function updateScript(id: number, input: ScriptInput, user: User): 
       await c.query('DELETE FROM script_lines WHERE id = ANY($1::int[])', [toDelete]);
     }
 
+    // El vocabulario se calcula sobre el script COMPLETO aunque solo se analicen
+    // las lineas nuevas: la deteccion de nombres propios necesita saber si la
+    // palabra aparece en minuscula en cualquier otro punto del texto.
+    const vocab = scriptVocabulary(parsed.map((p) => p.text));
+    const nuevas: Analyzable[] = [];
+
     for (let i = 0; i < parsed.length; i++) {
       if (reused[i] > 0) {
         await c.query('UPDATE script_lines SET ord = $2 WHERE id = $1', [reused[i], i]);
       } else {
-        const lineId = await insertLine(c, id, i, parsed[i]);
-        await analyzeAndStore(c, id, lineId, parsed[i]);
+        nuevas.push({ lineId: await insertLine(c, id, i, parsed[i]), line: parsed[i] });
       }
     }
-
+    await analyzeAndStore(c, id, nuevas, vocab);
     await rebalanceDistractors(c, id);
   });
 }
@@ -222,9 +230,11 @@ export async function reanalyzeScript(id: number, user: User): Promise<number> {
       [id],
     );
     await c.query('DELETE FROM blank_candidates WHERE script_id = $1', [id]);
-    for (const line of lines) {
-      await analyzeAndStore(c, id, line.id, { speaker: line.speaker, text: line.text });
-    }
+    await analyzeAndStore(
+      c, id,
+      lines.map((l) => ({ lineId: l.id, line: { speaker: l.speaker, text: l.text } })),
+      scriptVocabulary(lines.map((l) => l.text)),
+    );
     await rebalanceDistractors(c, id);
     const { rows } = await c.query<{ n: string }>(
       'SELECT COUNT(*) AS n FROM blank_candidates WHERE script_id = $1',
@@ -244,15 +254,40 @@ async function insertLine(c: PoolClient, scriptId: number, ord: number, p: Parse
   return rows[0].id;
 }
 
-async function analyzeAndStore(c: PoolClient, scriptId: number, lineId: number, p: ParsedLine) {
-  const candidates = analyzeLine(p.text, p.speaker);
-  for (const cand of candidates) {
+interface Analyzable {
+  lineId: number;
+  line: ParsedLine;
+}
+
+/**
+ * Analiza un lote de lineas y guarda los candidatos.
+ *
+ * Va por lote y no linea a linea porque dos de las reglas necesitan ver mas de
+ * una linea: los nombres propios al inicio de frase se deciden con el
+ * vocabulario de todo el script, y el tope de contracciones solo tiene sentido
+ * sobre el conjunto.
+ */
+async function analyzeAndStore(
+  c: PoolClient,
+  scriptId: number,
+  entries: Analyzable[],
+  vocab: Set<string>,
+) {
+  const conLinea = entries.flatMap(({ lineId, line }) =>
+    analyzeLine(line.text, line.speaker, vocab).map((cand) => ({ lineId, cand })),
+  );
+
+  const podados = capContractions(
+    conLinea.map(({ lineId, cand }) => ({ ...cand, lineId })),
+  );
+
+  for (const cand of podados) {
     await c.query(
       `INSERT INTO blank_candidates
          (line_id, script_id, start_pos, end_pos, answer, alt_answers, distractors, difficulty, tag, reason)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        ON CONFLICT (line_id, start_pos, end_pos) DO NOTHING`,
-      [lineId, scriptId, cand.start, cand.end, cand.answer, cand.altAnswers,
+      [cand.lineId, scriptId, cand.start, cand.end, cand.answer, cand.altAnswers,
         cand.distractors, cand.difficulty, cand.tag, cand.reason],
     );
   }
