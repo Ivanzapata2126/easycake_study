@@ -13,7 +13,7 @@ export default async function QuizPage({
   const sp = await searchParams;
   const user = await requireUser();
   const all = await listScripts(user);
-  const usable = all.filter((s) => s.candidate_count > 0);
+  const usable = all.filter((s) => s.candidate_count > 0 || s.translated_count > 0);
 
   if (!usable.length) {
     return (
@@ -42,6 +42,7 @@ export default async function QuizPage({
           id: s.id,
           title: s.title,
           candidate_count: s.candidate_count,
+          translated_count: s.translated_count,
           speakers: s.speakers,
         }))}
         initialScriptId={usable.some((s) => s.id === initialScriptId) ? initialScriptId : undefined}

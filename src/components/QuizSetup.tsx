@@ -3,13 +3,15 @@
 import { useState } from 'react';
 import { startQuizAction } from '@/app/actions';
 import { LEVEL_HELP } from '@/lib/labels';
-import type { Quiz, QuizConfig, QuizLevel, QuizMode } from '@/lib/types';
+import type { Quiz, QuizConfig, QuizFormat, QuizLevel, QuizMode } from '@/lib/types';
 import QuizRunner from './QuizRunner';
+import SentenceRunner from './SentenceRunner';
 
 interface ScriptOption {
   id: number;
   title: string;
   candidate_count: number;
+  translated_count: number;
   speakers: string[];
 }
 
@@ -33,6 +35,7 @@ export default function QuizSetup({ scripts, initialScriptId, initialSpeaker }: 
   );
   const [scriptId, setScriptId] = useState<number | undefined>(initialScriptId ?? scripts[0]?.id);
   const [speaker, setSpeaker] = useState<string | undefined>(initialSpeaker);
+  const [format, setFormat] = useState<QuizFormat>('gaps');
   const [level, setLevel] = useState<QuizLevel>('medium');
   const [density, setDensity] = useState(0.2);
   const [passages, setPassages] = useState(4);
@@ -44,11 +47,23 @@ export default function QuizSetup({ scripts, initialScriptId, initialSpeaker }: 
   const selected = scripts.find((s) => s.id === scriptId);
   const speakers = selected?.speakers ?? [];
 
+  // El formato de frase completa necesita traducciones: en modo general basta
+  // con que exista alguna, en modo script tiene que tenerlas ese script.
+  const sinTraduccion = mode === 'general'
+    ? scripts.every((s) => s.translated_count === 0)
+    : (selected?.translated_count ?? 0) === 0;
+
+  // Se DERIVA en vez de corregir el estado: si cambias a un script sin
+  // traducciones, el formato vuelve a huecos solo, sin un setState durante el
+  // render (que ademas dejaria elegido "frase completa" al volver atras).
+  const formato: QuizFormat = sinTraduccion ? 'gaps' : format;
+
   async function start() {
     setLoading(true);
     setError(null);
     const config: QuizConfig = {
       mode,
+      format: formato,
       scriptId: mode === 'general' ? undefined : scriptId,
       speaker: mode === 'speaker' ? (speaker ?? speakers[0]) : undefined,
       level,
@@ -63,12 +78,36 @@ export default function QuizSetup({ scripts, initialScriptId, initialSpeaker }: 
   }
 
   if (quiz) {
-    return <QuizRunner quiz={quiz} onRestart={() => setQuiz(null)} />;
+    return quiz.format === 'sentence'
+      ? <SentenceRunner quiz={quiz} onRestart={() => setQuiz(null)} />
+      : <QuizRunner quiz={quiz} onRestart={() => setQuiz(null)} />;
   }
 
   return (
     <div className="space-y-5">
       <div className="card p-5 space-y-5">
+        <div>
+          <div className="label">Formato</div>
+          <div className="grid sm:grid-cols-2 gap-2">
+            <Choice active={formato === 'gaps'} onClick={() => setFormat('gaps')}
+              title="Frase con huecos" desc="Rellenas las palabras que faltan" />
+            <Choice
+              active={formato === 'sentence'}
+              onClick={() => setFormat('sentence')}
+              title="Frase completa"
+              desc={sinTraduccion
+                ? 'Necesita traducciones al espanol'
+                : 'Ves el espanol y escribes todo el ingles'}
+              disabled={sinTraduccion}
+            />
+          </div>
+          {formato === 'sentence' && (
+            <p className="text-xs text-ink-400 mt-2">
+              Se corrige palabra por palabra: veras exactamente cuales fallaste.
+            </p>
+          )}
+        </div>
+
         <div>
           <div className="label">Que quieres practicar</div>
           <div className="grid sm:grid-cols-3 gap-2">
@@ -130,7 +169,7 @@ export default function QuizSetup({ scripts, initialScriptId, initialSpeaker }: 
           </div>
         )}
 
-        <div>
+        <div className={formato === 'sentence' ? 'hidden' : ''}>
           <div className="label">Dificultad</div>
           <div className="grid grid-cols-3 gap-2">
             {LEVELS.map((l) => (
@@ -140,7 +179,7 @@ export default function QuizSetup({ scripts, initialScriptId, initialSpeaker }: 
           </div>
         </div>
 
-        <div>
+        <div className={formato === 'sentence' ? 'hidden' : ''}>
           <div className="label">Densidad de huecos</div>
           <div className="grid grid-cols-3 gap-2">
             {DENSITIES.map((d) => (

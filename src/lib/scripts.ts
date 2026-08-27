@@ -33,6 +33,7 @@ export async function listScripts(user: User): Promise<ScriptSummary[]> {
            owner.username                      AS owner_username,
            (s.user_id = $1)                    AS is_owner,
            COALESCE(l.line_count, 0)::int      AS line_count,
+           COALESCE(l.translated, 0)::int      AS translated_count,
            COALESCE(c.candidate_count, 0)::int AS candidate_count,
            COALESCE(l.speakers, '{}')          AS speakers
       FROM scripts s
@@ -40,6 +41,7 @@ export async function listScripts(user: User): Promise<ScriptSummary[]> {
       LEFT JOIN (
         SELECT script_id,
                COUNT(*) AS line_count,
+               COUNT(translation) AS translated,
                ARRAY_AGG(DISTINCT speaker) FILTER (WHERE speaker IS NOT NULL) AS speakers
           FROM script_lines GROUP BY script_id
       ) l ON l.script_id = s.id
@@ -156,9 +158,10 @@ export async function updateScript(id: number, input: ScriptInput, user: User): 
 
       if (match) {
         // Se mueve a su nueva posicion (ord negativo temporal por el UNIQUE).
-        await c.query('UPDATE script_lines SET ord = $2, speaker = $3 WHERE id = $1', [
-          match.id, -(i + 1), p.speaker,
-        ]);
+        await c.query(
+          'UPDATE script_lines SET ord = $2, speaker = $3, translation = $4 WHERE id = $1',
+          [match.id, -(i + 1), p.speaker, p.translation],
+        );
         keptIds.add(match.id);
         reused.push(match.id);
       } else {
@@ -232,7 +235,10 @@ export async function reanalyzeScript(id: number, user: User): Promise<number> {
     await c.query('DELETE FROM blank_candidates WHERE script_id = $1', [id]);
     await analyzeAndStore(
       c, id,
-      lines.map((l) => ({ lineId: l.id, line: { speaker: l.speaker, text: l.text } })),
+      lines.map((l) => ({
+        lineId: l.id,
+        line: { speaker: l.speaker, text: l.text, translation: l.translation },
+      })),
       scriptVocabulary(lines.map((l) => l.text)),
     );
     await rebalanceDistractors(c, id);
@@ -248,8 +254,9 @@ export async function reanalyzeScript(id: number, user: User): Promise<number> {
 
 async function insertLine(c: PoolClient, scriptId: number, ord: number, p: ParsedLine): Promise<number> {
   const { rows } = await c.query<{ id: number }>(
-    'INSERT INTO script_lines (script_id, ord, speaker, text) VALUES ($1,$2,$3,$4) RETURNING id',
-    [scriptId, ord, p.speaker, p.text],
+    `INSERT INTO script_lines (script_id, ord, speaker, text, translation)
+     VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+    [scriptId, ord, p.speaker, p.text, p.translation],
   );
   return rows[0].id;
 }

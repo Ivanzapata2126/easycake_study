@@ -8,6 +8,7 @@ import {
 } from '@/lib/scripts';
 import { buildQuiz, gradeAttempt } from '@/lib/quiz';
 import { addCard, removeCard, reviewCard, setSuspended } from '@/lib/flashcards';
+import { reviewVocab, suspendVocab } from '@/lib/vocab';
 import { requireUser, requireAdmin, login, logout } from '@/lib/auth';
 import { createUser, setPassword, setActive, setRole, deleteUser } from '@/lib/users';
 import type { Grade } from '@/lib/srs';
@@ -235,4 +236,18 @@ export async function deleteUserAction(fd: FormData): Promise<void> {
   if (id === me.id) throw new Error('No puedes borrarte a ti mismo.');
   await deleteUser(id);
   revalidatePath('/admin');
+}
+
+// -------------------------------------------------------------- vocabulario
+
+export async function reviewVocabAction(word: string, grade: Grade): Promise<void> {
+  const user = await requireUser();
+  await reviewVocab(user.id, word, grade);
+  revalidatePath('/flashcards');
+}
+
+export async function suspendVocabAction(fd: FormData): Promise<void> {
+  const user = await requireUser();
+  await suspendVocab(user.id, String(fd.get('word')), fd.get('suspended') === 'true');
+  revalidatePath('/flashcards');
 }

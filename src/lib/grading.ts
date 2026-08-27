@@ -142,3 +142,109 @@ export function buildHint(answer: string): string {
     })
     .join('');
 }
+
+// ---------------------------------------------------- frases completas
+
+export type WordStatus = 'ok' | 'typo' | 'wrong' | 'missing' | 'extra';
+
+export interface WordDiff {
+  /** Lo que escribio el usuario, o la palabra esperada si la omitio. */
+  word: string;
+  /** La forma correcta, cuando difiere de `word`. */
+  expected?: string;
+  status: WordStatus;
+}
+
+export interface SentenceResult {
+  diff: WordDiff[];
+  /** Palabras acertadas sobre las esperadas. */
+  matched: number;
+  total: number;
+  verdict: Verdict;
+}
+
+/**
+ * Parte en palabras EXPANDIENDO las contracciones antes.
+ *
+ * "I'm" equivale a "I am": una palabra contra dos. Comparando palabra a palabra
+ * esa equivalencia es inexpresable y "I'm ready" contra "I am ready" salia como
+ * error. Expandiendo ambos lados el alineamiento las ve iguales.
+ */
+function splitWords(s: string): string[] {
+  return expandContractions(normalize(s)).split(' ').filter(Boolean);
+}
+
+/** Dos palabras "iguales" a efectos de alineacion: exacta, contraccion o typo. */
+function sameWord(a: string, b: string): WordStatus | null {
+  if (a === b) return 'ok';
+  if (expandContractions(a) === expandContractions(b)) return 'ok';
+  if (b.length >= 4 && levenshtein(a, b) <= 1) return 'typo';
+  if (b.length === 3 && levenshtein(a, b) <= 1 && a.length === 3) return 'typo';
+  return null;
+}
+
+/**
+ * Compara la frase escrita contra la esperada, palabra por palabra.
+ *
+ * Se alinea con programacion dinamica (tipo Needleman-Wunsch) en vez de comparar
+ * por indice: si el usuario se salta o agrega UNA palabra, un cotejo posicional
+ * marcaria como erroneo todo lo que viene despues, que es exactamente el
+ * feedback inutil que hay que evitar.
+ */
+export function diffSentence(userAnswer: string | null | undefined, expected: string): SentenceResult {
+  const user = splitWords(userAnswer ?? '');
+  const want = splitWords(expected);
+
+  if (!user.length) {
+    return {
+      diff: want.map((w) => ({ word: w, status: 'missing' as WordStatus })),
+      matched: 0, total: want.length, verdict: 'skipped',
+    };
+  }
+
+  // d[i][j] = coste minimo de alinear user[0..i) con want[0..j)
+  const d: number[][] = Array.from({ length: user.length + 1 }, (_, i) =>
+    Array.from({ length: want.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
+  );
+  for (let i = 1; i <= user.length; i++) {
+    for (let j = 1; j <= want.length; j++) {
+      const m = sameWord(user[i - 1], want[j - 1]);
+      const coste = m === 'ok' ? 0 : m === 'typo' ? 0.5 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + coste);
+    }
+  }
+
+  // Reconstruccion del camino, de atras hacia adelante.
+  const diff: WordDiff[] = [];
+  let i = user.length;
+  let j = want.length;
+  let matched = 0;
+
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0) {
+      const m = sameWord(user[i - 1], want[j - 1]);
+      const coste = m === 'ok' ? 0 : m === 'typo' ? 0.5 : 1;
+      if (d[i][j] === d[i - 1][j - 1] + coste) {
+        if (m === 'ok') { diff.push({ word: user[i - 1], status: 'ok' }); matched++; }
+        else if (m === 'typo') { diff.push({ word: user[i - 1], expected: want[j - 1], status: 'typo' }); matched++; }
+        else diff.push({ word: user[i - 1], expected: want[j - 1], status: 'wrong' });
+        i--; j--;
+        continue;
+      }
+    }
+    if (j > 0 && d[i][j] === d[i][j - 1] + 1) {
+      diff.push({ word: want[j - 1], status: 'missing' });   // falto escribirla
+      j--;
+    } else {
+      diff.push({ word: user[i - 1], status: 'extra' });     // sobra
+      i--;
+    }
+  }
+  diff.reverse();
+
+  const hayTypos = diff.some((w) => w.status === 'typo');
+  const hayFallos = diff.some((w) => w.status === 'wrong' || w.status === 'missing' || w.status === 'extra');
+  const verdict: Verdict = hayFallos ? 'wrong' : hayTypos ? 'typo' : 'correct';
+
+  return { diff, matched, total: want.length, verdict };
+}

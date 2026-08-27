@@ -1,13 +1,13 @@
 import 'server-only';
 import { query, tx } from './db';
 import { shuffle } from './analyzer';
-import { grade, isSuccess, buildHint } from './grading';
+import { grade, isSuccess, buildHint, diffSentence } from './grading';
 import { registerFailure } from './flashcards';
 import { canView } from './scripts';
 import type { User } from './users';
 import type {
   AttemptResult, BlankResult, CandidateRow, LineRow,
-  Quiz, QuizConfig, QuizLine, QuizPassage, QuizSegment,
+  Quiz, QuizConfig, QuizLine, QuizPassage, QuizSegment, QuizSentence, SentenceResultRow,
 } from './types';
 
 interface CandidateWithStats extends CandidateRow {
@@ -88,6 +88,8 @@ async function candidatesFor(
 }
 
 export async function buildQuiz(config: QuizConfig, user: User): Promise<Quiz> {
+  if (config.format === 'sentence') return buildSentenceQuiz(config, user);
+
   const passagesRaw: Array<{ scriptId: number; title: string; lines: LineRow[] }> = [];
 
   if (config.mode === 'general') {
@@ -211,10 +213,68 @@ export async function buildQuiz(config: QuizConfig, user: User): Promise<Quiz> {
   return {
     attemptId: attempt.id,
     mode: config.mode,
+    format: 'gaps',
     level: config.level,
     passages,
     blanks,
+    sentences: null,
     wordBank,
+  };
+}
+
+/**
+ * Modo "frase completa": se muestra el espanol y hay que escribir la frase
+ * entera en ingles. Solo entran lineas CON traduccion — sin ella no hay pista
+ * y el ejercicio no tiene enunciado.
+ */
+async function buildSentenceQuiz(config: QuizConfig, user: User): Promise<Quiz> {
+  const rows = config.mode === 'general'
+    ? await query<LineRow & { title: string }>(
+      `SELECT l.*, s.title FROM script_lines l JOIN scripts s ON s.id = l.script_id
+        WHERE l.translation IS NOT NULL AND (s.user_id = $1 OR s.is_public)
+        ORDER BY random() LIMIT $2`,
+      [user.id, config.maxBlanks],
+    )
+    : await query<LineRow & { title: string }>(
+      `SELECT l.*, s.title FROM script_lines l JOIN scripts s ON s.id = l.script_id
+        WHERE l.script_id = $1 AND l.translation IS NOT NULL
+          AND (s.user_id = $2 OR s.is_public OR $3)
+        ORDER BY l.ord`,
+      [config.scriptId, user.id, user.role === 'admin'],
+    );
+
+  if (!rows.length) {
+    throw new Error('Ese script todavia no tiene traducciones. Agregalas editandolo: "ingles | espanol".');
+  }
+
+  const sentences: QuizSentence[] = rows.map((l) => ({
+    lineId: l.id,
+    translation: l.translation as string,
+    speaker: l.speaker,
+    words: countWords(l.text),
+  }));
+
+  const [attempt] = await query<{ id: number }>(
+    `INSERT INTO attempts (mode, script_id, config, total, user_id)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [
+      config.mode,
+      config.mode === 'general' ? null : config.scriptId,
+      JSON.stringify({ ...config, lineIds: rows.map((l) => l.id) }),
+      rows.length,
+      user.id,
+    ],
+  );
+
+  return {
+    attemptId: attempt.id,
+    mode: config.mode,
+    format: 'sentence',
+    level: config.level,
+    passages: [],
+    blanks: [],
+    sentences,
+    wordBank: null,
   };
 }
 
@@ -229,11 +289,18 @@ export async function gradeAttempt(
 ): Promise<AttemptResult> {
   // El user_id en el WHERE evita que alguien corrija el intento de otro
   // mandando un attemptId cualquiera.
-  const [attempt] = await query<{ id: number; config: { candidateIds: number[] } }>(
+  const [attempt] = await query<{
+    id: number;
+    config: { candidateIds?: number[]; lineIds?: number[]; format?: string };
+  }>(
     'SELECT id, config FROM attempts WHERE id = $1 AND user_id = $2 AND finished_at IS NULL',
     [attemptId, userId],
   );
   if (!attempt) throw new Error('Intento no encontrado o ya cerrado.');
+
+  if (attempt.config.format === 'sentence') {
+    return gradeSentenceAttempt(attemptId, attempt.config.lineIds ?? [], answers);
+  }
 
   const ids = attempt.config.candidateIds ?? [];
   const cands = await query<CandidateRow>(
@@ -289,7 +356,58 @@ export async function gradeAttempt(
     );
   });
 
-  return { attemptId, total: results.length, correct, results, cardsAdded, cardsRelapsed };
+  return {
+    attemptId, format: 'gaps', total: results.length, correct, results,
+    sentences: [], cardsAdded, cardsRelapsed,
+  };
+}
+
+/**
+ * Correccion del modo "frase completa".
+ *
+ * No alimenta candidate_stats ni el mazo de flashcards: aquellos van por hueco
+ * y aqui la unidad es la frase entera. Se guarda la puntuacion del intento, que
+ * es lo que alimenta el historial.
+ */
+async function gradeSentenceAttempt(
+  attemptId: number,
+  lineIds: number[],
+  answers: Record<string, string>,
+): Promise<AttemptResult> {
+  const rows = await query<LineRow>(
+    'SELECT * FROM script_lines WHERE id = ANY($1::int[])',
+    [lineIds],
+  );
+  const byId = new Map(rows.map((l) => [l.id, l]));
+
+  const sentences: SentenceResultRow[] = [];
+  for (const id of lineIds) {
+    const line = byId.get(id);
+    if (!line) continue;
+    const raw = answers[String(id)] ?? '';
+    const r = diffSentence(raw, line.text);
+    sentences.push({
+      lineId: id,
+      translation: line.translation ?? '',
+      expected: line.text,
+      userAnswer: raw,
+      verdict: r.verdict,
+      diff: r.diff,
+      matched: r.matched,
+      words: r.total,
+    });
+  }
+
+  const correct = sentences.filter((s) => isSuccess(s.verdict)).length;
+  await query(
+    'UPDATE attempts SET correct = $2, total = $3, finished_at = NOW() WHERE id = $1',
+    [attemptId, correct, sentences.length],
+  );
+
+  return {
+    attemptId, format: 'sentence', total: sentences.length, correct,
+    results: [], sentences, cardsAdded: 0, cardsRelapsed: 0,
+  };
 }
 
 // ------------------------------------------------------------- estadisticas

@@ -36,7 +36,9 @@ export default async function EditScriptPage({ params }: { params: Promise<{ id:
           source: script.source ?? '',
           notes: script.notes ?? '',
           isPublic: script.is_public,
-          raw: toRawText(lines.map((l) => ({ speaker: l.speaker, text: l.text }))),
+          raw: toRawText(lines.map((l) => ({
+            speaker: l.speaker, text: l.text, translation: l.translation,
+          }))),
         }}
       />
     </div>

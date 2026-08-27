@@ -80,6 +80,11 @@ export default function ScriptForm({ action, initial, submitLabel, isAdmin }: Pr
           Un turno por linea, con <code className="text-brand-400">Hablante:</code> al inicio.
           Las lineas sin dos puntos se guardan como narracion.
         </p>
+        <p className="text-xs text-ink-400 mb-2">
+          Para habilitar el modo <strong className="text-ink-300">frase completa</strong>, agrega la
+          traduccion tras <code className="text-brand-400">{' | '}</code>:{' '}
+          <code className="text-ink-300">I&apos;m ready to go | Estoy listo para irme</code>
+        </p>
         <textarea
           id="raw" name="raw" required rows={14}
           value={raw}

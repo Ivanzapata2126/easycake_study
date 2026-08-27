@@ -18,6 +18,8 @@ export interface ScriptRow {
 
 export interface ScriptSummary extends ScriptRow {
   line_count: number;
+  /** Lineas con traduccion: si es 0, el modo "frase completa" no se ofrece. */
+  translated_count: number;
   candidate_count: number;
   speakers: string[];
   is_owner: boolean;
@@ -30,6 +32,7 @@ export interface LineRow {
   ord: number;
   speaker: string | null;
   text: string;
+  translation: string | null;
 }
 
 export interface CandidateRow {
@@ -48,10 +51,18 @@ export interface CandidateRow {
 }
 
 export type QuizMode = 'script' | 'general' | 'speaker';
+
+/**
+ * Que se te pide escribir:
+ *   gaps     — la frase con huecos sueltos (lo de siempre)
+ *   sentence — la frase entera, con el espanol debajo como unica pista
+ */
+export type QuizFormat = 'gaps' | 'sentence';
 export type QuizLevel = 'easy' | 'medium' | 'hard';
 
 export interface QuizConfig {
   mode: QuizMode;
+  format: QuizFormat;
   scriptId?: number;
   speaker?: string;
   level: QuizLevel;
@@ -91,12 +102,24 @@ export interface QuizBlank {
   length: number | null;
 }
 
+/** Un item del modo "frase completa": se ve el espanol, se escribe el ingles. */
+export interface QuizSentence {
+  lineId: number;
+  translation: string;
+  speaker: string | null;
+  /** Numero de palabras esperadas, como referencia de tamano. */
+  words: number;
+}
+
 export interface Quiz {
   attemptId: number;
   mode: QuizMode;
+  format: QuizFormat;
   level: QuizLevel;
   passages: QuizPassage[];
   blanks: QuizBlank[];
+  /** Solo en formato 'sentence'. */
+  sentences: QuizSentence[] | null;
   /** Solo en easy: banco de palabras mezclado (respuestas + distractores). */
   wordBank: string[] | null;
 }
@@ -110,11 +133,25 @@ export interface BlankResult {
   reason: string | null;
 }
 
+export interface SentenceResultRow {
+  lineId: number;
+  translation: string;
+  expected: string;
+  userAnswer: string;
+  verdict: 'correct' | 'typo' | 'wrong' | 'skipped';
+  diff: import('./grading').WordDiff[];
+  matched: number;
+  words: number;
+}
+
 export interface AttemptResult {
   attemptId: number;
+  format: QuizFormat;
   total: number;
   correct: number;
   results: BlankResult[];
+  /** Solo en formato 'sentence'. */
+  sentences: SentenceResultRow[];
   /** Palabras falladas que entraron por primera vez al mazo de flashcards. */
   cardsAdded: number;
   /** Palabras falladas que ya estaban en el mazo: recayeron y se reinician. */

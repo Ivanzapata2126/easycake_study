@@ -66,19 +66,19 @@ Doctor: I doubt it, but it's better to check. In the meantime, try to cut down o
     level: 'B1',
     source: 'Script de clase',
     notes: null,
-    raw: `My parents always said I was born to be an athlete.
-They say I wasn't happy unless I was kicking a ball.
-My first memory is of Dad and I playing football in our back garden.
-As I grew up, I dreamt of becoming a football player.
-My big break came when I was 18.
-Winnipeg City FC offered me a place in the squad.
-It was there that I learnt the true value of teamwork.
-I was excited about working with new people and making new friends.
-My time at Winnipeg FC was an enriching experience.
-It wasn't long until I was on a new journey, this time to play for Calgary FC.
-I was nervous at first, but it turned out that there was no reason to panic.
-I understood that I always have to do my best.
-That's why I'm trying so hard here at the Canadian Alliance.`,
+    raw: `My parents always said I was born to be an athlete. | Mis padres siempre decian que yo habia nacido para ser atleta.
+They say I wasn't happy unless I was kicking a ball. | Ellos dicen que yo no era feliz a menos que estuviera pateando un balon.
+My first memory is of Dad and I playing football in our back garden. | Mi primer recuerdo es de mi papa y yo jugando futbol en el patio trasero de nuestra casa.
+As I grew up, I dreamt of becoming a football player. | Mientras crecia, sonaba con convertirme en futbolista.
+My big break came when I was 18. | Mi gran oportunidad llego cuando tenia 18 anos.
+Winnipeg City FC offered me a place in the squad. | El Winnipeg City FC me ofrecio un lugar en el equipo.
+It was there that I learnt the true value of teamwork. | Fue alli donde aprendi el verdadero valor del trabajo en equipo.
+I was excited about working with new people and making new friends. | Estaba emocionado por trabajar con nuevas personas y hacer nuevos amigos.
+My time at Winnipeg FC was an enriching experience. | Mi tiempo en el Winnipeg FC fue una experiencia enriquecedora.
+It wasn't long until I was on a new journey, this time to play for Calgary FC. | No paso mucho tiempo antes de que comenzara una nueva aventura, esta vez para jugar en el Calgary FC.
+I was nervous at first, but it turned out that there was no reason to panic. | Estaba nervioso al principio, pero resulto que no habia ninguna razon para entrar en panico.
+I understood that I always have to do my best. | Comprendi que siempre tengo que dar lo mejor de mi.
+That's why I'm trying so hard here at the Canadian Alliance. | Por eso me estoy esforzando tanto aqui en la Alianza Canadiense.`,
   },
   {
     title: 'Decisions',
@@ -86,19 +86,19 @@ That's why I'm trying so hard here at the Canadian Alliance.`,
     level: 'A2',
     source: 'Script de clase',
     notes: null,
-    raw: `Well, I think I'm ready to go!
-OK, let's go! Our chalet is three hours away.
-Three hours away? Are we going by turtle?
-You're kidding! We're going on foot.
-No way, I have a car and I'm going by car. That's final!
-Going by car to the mountains? The road is not that safe because of the rain.
-OK, let's go by motorcycle, it's faster than your car.
-It's raining cats and dogs. Do you want to get the flu?
-But we can also catch a cold if we go on foot.
-Yes, it's true. So what?
-Let's go by bus up to the village and then we can walk.
-Yes, going by bus is cheaper than going by car.
-And leaving right now is better than staying here arguing.`,
+    raw: `Well, I think I'm ready to go! | Bueno, creo que estoy listo para irme.
+OK, let's go! Our chalet is three hours away. | OK, vamos! Nuestro chalet esta a tres horas de distancia.
+Three hours away? Are we going by turtle? | A tres horas de distancia? Vamos a ir en tortuga?
+You're kidding! We're going on foot. | Estas bromeando! Vamos a ir a pie.
+No way, I have a car and I'm going by car. That's final! | De ninguna manera! Tengo un carro y voy a ir en carro. Es mi decision final!
+Going by car to the mountains? The road is not that safe because of the rain. | Ir en carro a las montanas? La carretera no es tan segura debido a la lluvia.
+OK, let's go by motorcycle, it's faster than your car. | OK, vamos en motocicleta, es mas rapida que tu carro.
+It's raining cats and dogs. Do you want to get the flu? | Esta lloviendo a cantaros. Quieres que te de gripe?
+But we can also catch a cold if we go on foot. | Pero tambien podemos resfriarnos si vamos a pie.
+Yes, it's true. So what? | Si, es verdad. Y entonces que?
+Let's go by bus up to the village and then we can walk. | Vamos en bus hasta el pueblo y luego podemos caminar.
+Yes, going by bus is cheaper than going by car. | Si, ir en bus es mas barato que ir en carro.
+And leaving right now is better than staying here arguing. | Y salir ahora mismo es mejor que quedarnos aqui discutiendo.`,
   },
   {
     title: 'Dictation 1 - reunion de trabajo',
